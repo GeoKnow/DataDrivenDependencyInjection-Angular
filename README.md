@@ -1,26 +1,26 @@
-# Statebased-DI-Angular
+# DDDI-Angular
 
-A lightweight angular service for state based dependency injection.
-"State-based" refers to the fact that dependencies are expressions over an angular scope, which get dynamically re-computed whenever changes in their state occurr.
+A lightweight angular service for Data Driven Dependency Injection.
+"Data Driven" refers to the fact that dependencies are expressions over an angular scope, which get dynamically re-computed whenever changes in their state (i.e. the data) occurr.
 Technically, this project can be seen as a convenience wrapper around angular's $watch mechanism, with the purpose to wire up the value of a target model with a set of source models via some computation function.
-If that function returns a promise, the target value is set once it resolves. In this case, while the promise is running, the targets current value is retained.
+If that function returns a promise, the target value is set once it resolves. In this case, while the promise is running, the targets current value is retained. A failed promise is treated as having resolved to null.
 
 ## Example
 ```js
 angular
 
 // Include the sbdi module
-.module('MyModule', ['sdbi'])
+.module('MyModule', ['dddi'])
 
 // Reference the $sbdi service
-.controller('MyCtrl', ['$scope', '$sbdi', function($scope, $sbdi) {
+.controller('MyCtrl', ['$scope', '$dddi', function($scope, $sbdi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
 
-    var sbdi = $sbdi($scope);
+    var dddi = $dddi($scope);
 
     // Register a dependency for $scope.sparqlService
-    var deregisterFn = sbdi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
+    var deregisterFn = dddi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
         function(serviceIri, defaultGraphIris) {
             return someSparqlServiceObjectBasedOn(serviceIri, defaultGraphIris);
         }]);
