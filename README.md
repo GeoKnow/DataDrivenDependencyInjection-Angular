@@ -9,7 +9,7 @@ If that function returns a promise, the target value is set once it resolves. In
 ```js
 angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $bsdi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
-    $scope.defaultGraphIris = ['http://dbpedia.org];
+    $scope.defaultGraphIris = ['http://dbpedia.org'];
 
     var sbdi = $bsdi($scope);
 
