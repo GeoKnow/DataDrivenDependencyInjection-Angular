@@ -6,6 +6,7 @@ Technically, this project can be seen as a convenience wrapper around angular's 
 If that function returns a promise, the target value is set once it resolves. In this case, while the promise is running, the targets current value is retained. A failed promise is treated as having resolved to null.
 
 ## Bower.json dependency
+```js
 {
   "name": "your-app",
   "version": "0.0.1",
@@ -13,6 +14,7 @@ If that function returns a promise, the target value is set once it resolves. In
     "dddi-angular": "1.0.0"
   }
 }
+```
 
 ## Example
 ```js
