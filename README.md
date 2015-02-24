@@ -10,10 +10,10 @@ If that function returns a promise, the target value is set once it resolves. In
 angular
 
 // Include the sbdi module
-.module('MyModule', [ 'sdbi'])
+.module('MyModule', ['sdbi'])
 
 // Reference the $sbdi service
-.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
+.controller('MyCtrl', ['$scope', '$sbdi', function($scope, $sbdi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
 
