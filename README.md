@@ -13,10 +13,13 @@ angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
 
     var sbdi = $sbdi($scope);
 
-    sbdi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
+    var deregisterFn = sbdi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
         function(serviceIri, defaultGraphIris) {
             return someSparqlServiceObjectBasedOn(serviceIri, defaultGraphIris);
         }]);
+        
+    // Call the deregister function to stop reacting to respective changes
+    deregisterFn();
 }]);
 ```
 
