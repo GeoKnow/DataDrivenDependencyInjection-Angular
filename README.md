@@ -7,7 +7,7 @@ If that function returns a promise, the target value is set once it resolves. In
 
 ## Example
 ```js
-angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $bsdi) {
+angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
 
