@@ -11,7 +11,7 @@ angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
 
-    var sbdi = $bsdi($scope);
+    var sbdi = $sbdi($scope);
 
     sbdi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
         function(serviceIri, defaultGraphIris) {
