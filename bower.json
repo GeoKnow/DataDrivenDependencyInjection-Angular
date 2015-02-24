@@ -1,7 +1,7 @@
 {
   "name": "dddi",
   "version": "1.0.0",
-  "main": "dddi-angular.js"
+  "main": "dddi-angular.js",
   "dependencies": {
     "angular": ">=1"
   }
