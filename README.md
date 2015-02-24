@@ -25,7 +25,7 @@ angular
             return someSparqlServiceObjectBasedOn(serviceIri, defaultGraphIris);
         }]);
         
-    // Call the deregister function to stop reacting to respective state changes of the dependencies
+    // Call the deregister function to stop reacting to state changes of respective dependencies
     deregisterFn();
 }])
 
