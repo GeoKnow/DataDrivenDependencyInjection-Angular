@@ -1,4 +1,4 @@
-# Statebased-DI-Angular (Documentation is Work in Progress)
+# Statebased-DI-Angular
 
 A lightweight angular service for state based dependency injection.
 "State-based" refers to the fact that dependencies are expressions over an angular scope, which get dynamically re-computed whenever changes in their state occurr.
@@ -7,12 +7,19 @@ If that function returns a promise, the target value is set once it resolves. In
 
 ## Example
 ```js
-angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
+angular
+
+// Include the sbdi module
+.module('MyModule', [ 'sdbi'])
+
+// Reference the $sbdi service
+.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
 
     var sbdi = $sbdi($scope);
 
+    // Register a dependency for $scope.sparqlService
     var deregisterFn = sbdi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
         function(serviceIri, defaultGraphIris) {
             return someSparqlServiceObjectBasedOn(serviceIri, defaultGraphIris);
@@ -20,7 +27,9 @@ angular.controller('MyCtrl', [ '$scope', '$sbdi', function($scope, $sbdi) {
         
     // Call the deregister function to stop reacting to respective changes
     deregisterFn();
-}]);
+}])
+
+;
 ```
 
 ### Dependency syntax:
