@@ -5,6 +5,15 @@ A lightweight angular service for Data Driven Dependency Injection.
 Technically, this project can be seen as a convenience wrapper around angular's $watch mechanism, with the purpose to wire up the value of a target model with a set of source models via some computation function.
 If that function returns a promise, the target value is set once it resolves. In this case, while the promise is running, the targets current value is retained. A failed promise is treated as having resolved to null.
 
+## Bower.json dependency
+{
+  "name": "your-app",
+  "version": "0.0.1",
+  "dependencies": {
+    "dddi-angular": "1.0.0"
+  }
+}
+
 ## Example
 ```js
 angular
