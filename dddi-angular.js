@@ -1,39 +1,86 @@
-/**
- * Dependency: {
- *     model: 'string',
- *     optional: 'boolean'
- * }
- *
- * Provider: {
- *     fn: 'function',
- *     deps: 'Dependency[]'
- * }
- *
- *
- * angular.controller('myCtrl', [ '$scope', '$dddi', function($scope, $dddi) {
- *     var dddi = new $dddi($scope);
- * }]);
- */
-angular.module('dddi', [])
+(function() {
 
-.service('$dddi', [ '$parse', '$q', function($parse, $q) {
 
-    // We partially bind a DynamicDi instance to the $parse service,
-    var result = function(scope) {
-        var r = new DynamicDi(scope, $parse, $q);
-        return r;
-    };
+var DiUtils = {
+    processProviderSpec: function($parse, spec) {
+        var result;
 
-    return result;
-}]);
+        if(spec.$inject) {
+            throw new Error('Not supported yet');
+        }
+        else if(Array.isArray(spec)) {
+            result = DiUtils.processProviderSpecArray($parse, spec);
+        }
+        else if(spec instanceof Function) {
+            // Treat the provider as an identity function that dependends on the given function
+            var rephrased = [spec, angular.identity];
+            result = DiUtils.processProviderSpecArray($parse, rephrased);
+        } else {
+            throw new Error('Unknow spec');
+        }
 
-/*
-angular.Scope.prototype.$dddi = function() {
-    if(!this.$dddiObj) {
+        return result;
+    },
 
+    processProviderSpecArray: function($parse, spec) {
+        var l = spec.length;
+
+        var depSpecs = spec.slice(0, l - 1);
+        var fn = spec[l - 1];
+
+        var deps = depSpecs.map(function(depSpec) {
+            var r = DiUtils.parseDepSpec($parse, depSpec);
+            return r;
+        });
+
+        var result = {
+            fn: fn,
+            deps: deps
+        };
+
+        return result;
+    },
+
+
+    /**
+     * =depName - deep equality - $watch( ..., true)
+     * \@depName - array equality
+     * depName - default equality - a == b
+     *
+     * TODO ?depName - strict equality - a === b
+     *
+     *
+     */
+    parseDepSpec: function($parse, depSpec) {
+        var result;
+
+        if(angular.isString(depSpec)) {
+            var pattern = /(\?)?(=|@)?(.+)/
+            var groups = pattern.exec(depSpec);
+
+            result = {
+                model: $parse(groups[3]),
+                optional: groups[1] === '?',
+                cmpMode: groups[2] || ''
+            };
+
+        } else if(angular.isFunction(depSpec)) {
+            // If the argument is a function, it will always be evaluated and
+            // the respective value will be passed as an argument to the provider
+            result = {
+                model: depSpec,
+                optional: true,
+                cmpMode: ''
+            };
+        } else {
+            throw new Error('Non-string arguments not yet supported');
+        }
+
+        return result;
     }
 };
-*/
+
+
 
 var DynamicDi = function(scope, $parse, $q) {
     this.scope = scope || {};
@@ -85,7 +132,7 @@ DynamicDi.prototype = {
                 var arg = args[i];
                 var dep = provider.deps[i];
 
-                if(!dep.optional && !arg) {
+                if(!dep.optional && arg == null) {
                     valid = false;
                     break;
                 }
@@ -239,83 +286,45 @@ DynamicDi.prototype = {
 };
 
 
-var DiUtils = {
-    processProviderSpec: function($parse, spec) {
-        var result;
+/**
+ * Dependency: {
+ *     model: 'string',
+ *     optional: 'boolean'
+ * }
+ *
+ * Provider: {
+ *     fn: 'function',
+ *     deps: 'Dependency[]'
+ * }
+ *
+ *
+ * angular.controller('myCtrl', [ '$scope', '$dddi', function($scope, $dddi) {
+ *     var dddi = new $dddi($scope);
+ * }]);
+ */
+angular.module('dddi', [])
 
-        if(spec.$inject) {
-            throw new Error('Not supported yet');
-        }
-        else if(Array.isArray(spec)) {
-            result = DiUtils.processProviderSpecArray($parse, spec);
-        }
-        else if(spec instanceof Function) {
-            // Treat the provider as an identity function that dependends on the given function
-            var rephrased = [spec, angular.identity];
-            result = DiUtils.processProviderSpecArray($parse, rephrased);
-        } else {
-            throw new Error('Unknow spec');
-        }
+.service('$dddi', [ '$parse', '$q', function($parse, $q) {
 
-        return result;
-    },
+    // We partially bind a DynamicDi instance to the $parse service,
+    var result = function(scope) {
+        var r = new DynamicDi(scope, $parse, $q);
+        return r;
+    };
 
-    processProviderSpecArray: function($parse, spec) {
-        var l = spec.length;
+    return result;
+}]);
 
-        var depSpecs = spec.slice(0, l - 1);
-        var fn = spec[l - 1];
+/*
+angular.Scope.prototype.$dddi = function() {
+    if(!this.$dddiObj) {
 
-        var deps = depSpecs.map(function(depSpec) {
-            var r = DiUtils.parseDepSpec($parse, depSpec);
-            return r;
-        });
-
-        var result = {
-            fn: fn,
-            deps: deps
-        };
-
-        return result;
-    },
-
-
-    /**
-     * =depName - deep equality - $watch( ..., true)
-     * \@depName - array equality
-     * depName - default equality - a == b
-     *
-     * TODO ?depName - strict equality - a === b
-     *
-     *
-     */
-    parseDepSpec: function($parse, depSpec) {
-        var result;
-
-        if(angular.isString(depSpec)) {
-            var pattern = /(\?)?(=|@)?(.+)/
-            var groups = pattern.exec(depSpec);
-
-            result = {
-                model: $parse(groups[3]),
-                optional: groups[1] === '?',
-                cmpMode: groups[2] || ''
-            };
-
-        } else if(angular.isFunction(depSpec)) {
-            // If the argument is a function, it will always be evaluated and
-            // the respective value will be passed as an argument to the provider
-            result = {
-                model: depSpec,
-                optional: true,
-                cmpMode: ''
-            };
-        } else {
-            throw new Error('Non-string arguments not yet supported');
-        }
-
-        return result;
     }
 };
+*/
+
+
+
+})();
 
 
