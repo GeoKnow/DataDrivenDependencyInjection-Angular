@@ -65,10 +65,13 @@ angular
 ;
 ```
 
-Now all services will be updated with a single click:
+In the example below, clicking the button will update sparqlService and labelLookupServicebecause they depend on the state of serviceIri.
+This way, refreshing complex dependencies between components of an application *as needed* becomes a breeze:
+If for a service there is no state change in one of its dependencies, then there is no need to re-create the service.
+
 ```html
 <input type="text" ng-model="iri">
-<button ng-click="serviceIri=iri">Just by clicking this button the sparqlService and labelLookupService will be updated because they depend on the state of serviceIri</Button>
+<button ng-click="serviceIri=iri">Magic happens when you click me</Button>
 ```
 
 ### Dependency syntax:
