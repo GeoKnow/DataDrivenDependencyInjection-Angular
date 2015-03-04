@@ -62,9 +62,13 @@ angular
 
 }])
 
+;
+```
+
+Now all services will be updated with a single click:
+```html
 <input type="text" ng-model="iri">
 <button ng-click="serviceIri=iri">Just by clicking this button the sparqlService and labelLookupService will be updated because they depend on the state of serviceIri</Button>
-;
 ```
 
 ### Dependency syntax:
