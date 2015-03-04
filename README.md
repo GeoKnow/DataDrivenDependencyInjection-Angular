@@ -44,7 +44,7 @@ angular
     var dddi = $dddi($scope);
 
     // Register a dependency for $scope.sparqlService
-    dddi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
+    dddi.register('sparqlService', [ 'serviceIri', '?@defaultGraphIris',
         function(serviceIri, defaultGraphIris) {
             return someSparqlServiceObjectBasedOn(serviceIri, defaultGraphIris);
         }]);
@@ -52,7 +52,7 @@ angular
 
     // Now lets create a utility function that
     // returns labels for URI based on the sparqlService
-    var deregisterFn = dddi.register('labelLookupService', [ 'sparqlService,
+    var deregisterFn = dddi.register('labelLookupService', [ 'sparqlService',
         function(sparqlService) {
             return function(uri) {
                 var promise = someFunctionThatFetchesTheLabelsForTheUri(sparqlService, uri);
