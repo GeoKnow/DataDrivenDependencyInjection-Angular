@@ -28,13 +28,15 @@ If that function returns a promise, the target value is set once it resolves. In
 
 ## Example
 ```js
+// Note: Since not many ppl know what a sparql endpoint is, at some point I'll update this example
+// for geocoding which is much more popular - But the principle is the same ;)
+
 angular
 
 // Include the dddi module
 .module('MyModule', ['dddi'])
 
 // Reference the $dddi service
-// Since not many ppl know what a sparql endpoint is, I'll update this example for geocoding which is much more popular - But the principle is the same ;)
 .controller('MyCtrl', ['$scope', '$dddi', function($scope, $dddi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
@@ -48,7 +50,8 @@ angular
         }]);
         
 
-    // Now lets say we want to create a utility function that can return labels for URI based on the sparqlService
+    // Now lets create a utility function that
+    // returns labels for URI based on the sparqlService
     var deregisterFn = dddi.register('labelLookupService', [ 'sparqlService,
         function(sparqlService) {
             return function(uri) {
