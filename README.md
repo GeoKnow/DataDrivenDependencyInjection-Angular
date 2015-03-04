@@ -12,7 +12,7 @@ Second: There may be other components of your application that build upon the ge
 Enter DDDI.
 
 Data Driven" refers to the fact that dependencies are expressions over an angular scope, which get dynamically re-computed whenever changes in their state (i.e. the data) occurr.
-Technically, this project can be seen as a convenience wrapper around angular's $watch mechanism, with the purpose to wire up the value of a target model with a set of source models via some computation function.
+Technically, this project can be seen as a (rather small) convenience wrapper around angular's $watch mechanism, with the purpose to wire up the value of a target model with a set of source models via some computation function.
 If that function returns a promise, the target value is set once it resolves. In this case, while the promise is running, the targets current value is retained. A failed promise is treated as having resolved to null.
 
 ## Bower.json dependency
@@ -67,7 +67,7 @@ angular
 
 In the example below, clicking the button will update sparqlService and labelLookupServicebecause they depend on the state of serviceIri.
 This way, refreshing complex dependencies between components of an application *as needed* becomes a breeze:
-If for a service there is no state change in one of its dependencies, then there is no need to re-create the service.
+The assumption is, that if for a service there is no state change in any of its dependencies, then there is no need to re-create the service.
 
 ```html
 <input type="text" ng-model="iri">
