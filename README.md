@@ -1,7 +1,17 @@
 # DDDI-Angular
 
 A lightweight angular service for Data Driven Dependency Injection.
-"Data Driven" refers to the fact that dependencies are expressions over an angular scope, which get dynamically re-computed whenever changes in their state (i.e. the data) occurr.
+
+# Introduction
+In any slightly sophisticated Web applications there are components that depend on each other's state.
+For example, when doing a meshup you may have a configuration object with URLs pointing to services having certain APIs hosted somewhere on the Web (e.g. Nominatim Geocode services or SparqlEndpoints). Now, if for example your application needs to geocode an address string, you don't want your application layer to deal with the details of how to construct the URIs - instead, based on the configuration, you want to create a simple service wrapper around it, which for instance has a 'Promise geocode(String addressString)' method.
+Now there are two common problems:
+First, when changing the config url (e.g. in order to use the Nominatim of MapQuest rather than that of OpenStreetMap) you want your service to update.
+Second: There may be other components of your application that build upon the geocoding service and thus need to be updated as well.
+
+Enter DDDI.
+
+Data Driven" refers to the fact that dependencies are expressions over an angular scope, which get dynamically re-computed whenever changes in their state (i.e. the data) occurr.
 Technically, this project can be seen as a convenience wrapper around angular's $watch mechanism, with the purpose to wire up the value of a target model with a set of source models via some computation function.
 If that function returns a promise, the target value is set once it resolves. In this case, while the promise is running, the targets current value is retained. A failed promise is treated as having resolved to null.
 
@@ -20,26 +30,40 @@ If that function returns a promise, the target value is set once it resolves. In
 ```js
 angular
 
-// Include the sbdi module
+// Include the dddi module
 .module('MyModule', ['dddi'])
 
-// Reference the $sbdi service
-.controller('MyCtrl', ['$scope', '$dddi', function($scope, $sbdi) {
+// Reference the $dddi service
+// Since not many ppl know what a sparql endpoint is, I'll update this example for geocoding which is much more popular - But the principle is the same ;)
+.controller('MyCtrl', ['$scope', '$dddi', function($scope, $dddi) {
     $scope.serviceIri = 'http://dbpedia.org/sparql';
     $scope.defaultGraphIris = ['http://dbpedia.org'];
 
     var dddi = $dddi($scope);
 
     // Register a dependency for $scope.sparqlService
-    var deregisterFn = dddi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
+    dddi.register('sparqlService', [ 'serviceIri', '?defaultGraphIris',
         function(serviceIri, defaultGraphIris) {
             return someSparqlServiceObjectBasedOn(serviceIri, defaultGraphIris);
         }]);
         
-    // Call the deregister function to stop reacting to state changes of respective dependencies
-    deregisterFn();
+
+    // Now lets say we want to create a utility function that can return labels for URI based on the sparqlService
+    var deregisterFn = ('labelLookupService', [ 'sparqlService,
+        function(sparqlService) {
+            return function(uri) {
+                var promise = someFunctionThatFetchesTheLabelsForTheUri(sparqlService, uri);
+                return promise;
+            };
+        }]);
+    
+    // Note: Call the deregister function to stop reacting to state changes of respective dependencies
+    // deregisterFn();
+
 }])
 
+<input type="text" ng-model="iri">
+<button ng-click="serviceIri=iri">Just by clicking this button the sparqlService and labelLookupService will be updated because they depend on the state of serviceIri</Button>
 ;
 ```
 
