@@ -49,7 +49,7 @@ angular
         
 
     // Now lets say we want to create a utility function that can return labels for URI based on the sparqlService
-    var deregisterFn = ('labelLookupService', [ 'sparqlService,
+    var deregisterFn = dddi.register('labelLookupService', [ 'sparqlService,
         function(sparqlService) {
             return function(uri) {
                 var promise = someFunctionThatFetchesTheLabelsForTheUri(sparqlService, uri);
