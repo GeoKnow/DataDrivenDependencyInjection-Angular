@@ -225,7 +225,7 @@ DynamicDi.prototype = {
 
             case '@': {
                 var unwatchers = group.map(function(dep) {
-                    var r = scope.$watchCollection(dep.model, doChangeAction);
+                    var r = self.scope.$watchCollection(dep.model, doChangeAction);
                     return r;
                 });
 
