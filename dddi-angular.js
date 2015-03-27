@@ -117,6 +117,9 @@ DynamicDi.prototype = {
         var self = this;
         var deps = provider.deps;
 
+
+		var depToPromise = [];
+
         // We explicitly add the non-referenced newValue and old Value attributes
         // so that angular tracks the old value which is useful for debugging
         var doChangeAction = function(newValue, oldValue) {
