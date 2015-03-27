@@ -143,7 +143,7 @@ DynamicDi.prototype = {
 
             // Deal with potential promises
             self.$q.when(val).then(function(v) {
-                console.log('Updating ' + targetExprStr + ' with value ' + v);
+                console.log('Updating ' + targetExprStr + ' with value ' + v, v);
                 target.assign(self.scope, v);
             });
 
