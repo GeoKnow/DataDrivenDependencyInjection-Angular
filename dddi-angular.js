@@ -118,7 +118,8 @@ DynamicDi.prototype = {
         var deps = provider.deps;
 
 
-		var depToPromise = [];
+        var runningPromise = null;
+
 
         // We explicitly add the non-referenced newValue and old Value attributes
         // so that angular tracks the old value which is useful for debugging
@@ -144,15 +145,31 @@ DynamicDi.prototype = {
             }
 
             var val = valid ? provider.fn.apply(self.scope, args) : null;
-            //self.scope[attr] = val;
+
+            // Cancel any prior promise
+            if(runningPromise && runningPromise.cancel) {
+                runningPromise.cancel();
+            }
+
+            runningPromise = val;
 
             // Deal with potential promises
             self.$q.when(val).then(function(v) {
-                console.log('Updating ' + targetExprStr + ' with value ' + v, v);
-                target.assign(self.scope, v);
-            });
+                if(runningPromise == val) {
+                    runningPromise = null;
 
-            //target.assign(self.scope, val);
+                    console.log('[dddi] Updating ' + targetExprStr + ' with value ' + v, v);
+                    target.assign(self.scope, v);
+                } else {
+                    console.log('[dddi] Ignoring ' + targetExprStr + ' with value ' + v, v);
+                }
+            }, function(e) {
+                if(runningPromise == val) {
+                    runningPromise = null;
+
+                    console.log('[dddi] Failed ' + targetExprStr + ': ', e);
+                }
+            });
         };
 
         // Make the provider take immediate effect
