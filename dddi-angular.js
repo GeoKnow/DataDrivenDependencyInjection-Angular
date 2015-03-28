@@ -153,8 +153,7 @@ DynamicDi.prototype = {
 
             runningPromise = val;
 
-            // Deal with potential promises
-            self.$q.when(val).then(function(v) {
+            var success = function(v) {
                 if(runningPromise == val) {
                     runningPromise = null;
 
@@ -163,13 +162,24 @@ DynamicDi.prototype = {
                 } else {
                     console.log('[dddi] Ignoring ' + targetExprStr + ' with value ' + v, v);
                 }
-            }, function(e) {
+            };
+
+            var fail = function(e) {
                 if(runningPromise == val) {
                     runningPromise = null;
 
                     console.log('[dddi] Failed ' + targetExprStr + ': ', e);
                 }
-            });
+            };
+
+            // Deal with potential promises
+            // Note: It seems using $q directly may in some cases delay execution of the handlers even if val is NOT a promise
+            // This is undesired, as it causes dependencies needlessly to be resolved out of order
+            if(val.then) {
+                self.$q.when(val).then(success, fail);
+            } else {
+                success(val);
+            }
         };
 
         // Make the provider take immediate effect
