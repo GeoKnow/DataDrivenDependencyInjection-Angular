@@ -175,7 +175,7 @@ DynamicDi.prototype = {
             // Deal with potential promises
             // Note: It seems using $q directly may in some cases delay execution of the handlers even if val is NOT a promise
             // This is undesired, as it causes dependencies needlessly to be resolved out of order
-            if(val.then) {
+            if(val && val.then) {
                 self.$q.when(val).then(success, fail);
             } else {
                 success(val);
