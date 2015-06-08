@@ -1,7 +1,110 @@
 (function() {
 
+'use strict';
+
 
 var DiUtils = {
+    /** 
+     * Function that wraps an array-returning function, such that
+     * the returned array will always have the same reference
+     */
+    wrapArrayFn: function(sourcArrayFn) {
+        var targetArray = [];
+
+        var result = function() {
+            var sourceArray = sourcArrayFn();
+            var l = sourceArray ? sourceArray.length : 0;
+            DiUtils.resizeArray(targetArray, l);
+
+            for(var i = 0; i < l; ++i) {
+                targetArray[i] = sourceArray[i];
+            }
+            return targetArray;
+        };
+
+        return result;
+    },
+
+
+    resizeArray: function(arr, targetLength, handlers) {
+        handlers = handlers || {};
+
+        var k = arr.length;
+
+        var i;
+        while(arr.length < targetLength) {
+            i = arr.length;
+            var init = handlers.preCreate ? handlers.preCreate(i, null, arr) : null;
+            arr.push(init);
+            handlers.postCreate && handlers.postCreate(i, init, arr);
+        }
+
+        while(arr.length > targetLength) {
+            i = arr.length - 1;
+            var item = arr[i];
+            handlers.preDestroy && handlers.preDestroy(i, item, arr);
+            arr.pop();
+            handlers.postDestroy && handlers.postDestroy(i, item, arr);
+        }
+    },
+
+
+    /**
+     * Takes a model function and binds it to the context returned by a contextFn.
+     * Returns a new function whose invocation returns the value in regard to the current context.
+     * If the model has a .assign method, it will be wrapped as well to execute against the context.
+     */
+    bindExpr: function(expr, contextFn) {
+        var r = function() {
+            var context = contextFn();
+            var r = expr(context);
+            return r;
+        };
+
+        if(expr.assign) {
+            r.assign = function(value) {
+                var context = contextFn();
+                expr.assign(context, value);
+            };
+        }
+
+        return r;
+    },
+
+    /**
+     * Binds a provider to a given context
+     */
+    bindProvider: function(provider, contextFn) {
+        var result = {
+            fn: provider.fn,
+            deps: provider.deps.map(function(dep) {
+                var r = DiUtils.bindDep(dep, contextFn);
+                return r;
+            })
+		};
+
+        return result;
+    },
+
+    /**
+     * Binds a dependency to a given context; called by bindProvider
+     */
+    bindDep: function(dep, contextFn) {
+		var result = angular.extend({}, dep);
+        result.fn = DiUtils.bindExpr(dep.expr, contextFn);
+        return result;
+    },
+
+    bindAssignment: function(assignment, depContextFn, targetContextFn) {
+        var result = {
+            assignment: assignment,
+//            targetExprStr: assignment.targetExprStr
+            boundTarget: DiUtils.bindExpr(assignment.targetExpr, targetContextFn || depContextFn),
+            boundProvider: DiUtils.bindProvider(assignment.provider, depContextFn)
+        };
+        return result;
+    },
+
     processProviderSpec: function($parse, spec) {
         var result;
 
@@ -55,11 +158,11 @@ var DiUtils = {
         var result;
 
         if(angular.isString(depSpec)) {
-            var pattern = /(\?)?(=|@)?(.+)/
+            var pattern = /(\?)?(=|@)?(.+)/;
             var groups = pattern.exec(depSpec);
 
             result = {
-                model: $parse(groups[3]),
+                expr: $parse(groups[3]),
                 optional: groups[1] === '?',
                 cmpMode: groups[2] || ''
             };
@@ -68,7 +171,7 @@ var DiUtils = {
             // If the argument is a function, it will always be evaluated and
             // the respective value will be passed as an argument to the provider
             result = {
-                model: depSpec,
+                expr: depSpec,
                 optional: true,
                 cmpMode: ''
             };
@@ -87,10 +190,58 @@ var DynamicDi = function(scope, $parse, $q) {
     this.$parse = $parse;
     this.$q = $q;
     this.attrToProviderCtrl = {};
+
+    var self = this;
+
+    this.contextFn = function() {
+        return self.scope;
+    };
+
+    this.idToArrayMgr = {};
 };
 
 DynamicDi.prototype = {
-    register: function(targetExprStr, providerSpec) {
+    linkArray: function(targetArrayExprOrStr, sourceArrayExprOrStr, handlers) {
+        var targetArrayExpr = targetArrayExprOrStr;
+        if(angular.isString(targetArrayExpr)) {
+            targetArrayExpr = this.$parse(targetArrayExprOrStr);
+        }
+
+        var self = this;
+        this.scope.$watchCollection(sourceArrayExprOrStr, function(sourceArr, before) {
+            var targetArr = targetArrayExpr(this.scope);
+
+            DiUtils.resizeArray(targetArr, sourceArr.length, handlers);
+        });
+    },
+
+
+    /**
+     * The returned object supports registering dddi assignments
+     * on arrays: Each assignment is carried out for every array item.
+     */
+    forArray: function(targetArrayExprOrStr) {
+        if(!angular.isString(targetArrayExprOrStr)) {
+            throw new Error('Sorry, non-string expressions not supported yet');
+        }
+
+        var arrayExpr = this.$parse(targetArrayExprOrStr);
+        var arrayFn = DiUtils.bindExpr(arrayExpr, this.contextFn);
+
+
+        // Check if there already exists a template for that array
+        // otherwise create a new one
+        var arrayMgr = this.idToArrayMgr[targetArrayExprOrStr];
+        if(arrayMgr == null) {
+            arrayMgr = new DddiArrayMgr(this, arrayFn, targetArrayExprOrStr);
+            this.idToArrayMgr[targetArrayExprOrStr] = arrayMgr;
+        }
+
+        return arrayMgr;
+    },
+
+
+    processAssignment: function(targetExprStr, providerSpec) {
         var target = this.$parse(targetExprStr);
         if(!target.assign) {
             throw new Error('Target is not writeable: ', targetExprStr, providerSpec);
@@ -98,24 +249,51 @@ DynamicDi.prototype = {
 
         var provider = DiUtils.processProviderSpec(this.$parse, providerSpec);
 
-        var providerCtrl = this.installProvider(target, provider, targetExprStr);
+        var result = {
+            targetExpr: target,
+            targetExprStr: targetExprStr, // useful for logging
+            provider: provider
+        };
 
-        return providerCtrl;
-        //this.attrToProviderCtrl[target] = providerCtrl;
-//        var oldProviderCtrl = this.attrToProviderCtrl[attr];
-//
-//        if(oldProviderCtrl) {
-//
-//        }
-//
-//        if(newProvider !== oldProvider) {
-//            this.dirtyDependencies[name] = true;
-//        }
+        return result;
+    },
+    
+
+    register: function(targetExprStr, providerSpec) {
+        var assignment = this.processAssignment(targetExprStr, providerSpec);
+        var boundAssignment = this.bindAssignment(assignment);
+
+        var result = this.installBoundAssignment(boundAssignment);
+
+        return result;
     },
 
+    bindAssignment: function(assignment) {
+        var result = DiUtils.bindAssignment(assignment, this.contextFn);
+        result.targetExprStr = assignment.targetExprStr;
+        return result;
+    },
+/*
     installProvider: function(target, provider, targetExprStr) {
+        // Bind target and dependency expressions to the scope
+
+
+        var result = this.installProvider(target, boundProvider, targetExprStr);
+        return result;
+    },
+*/
+
+
+    installBoundAssignment: function(boundAssignment) {
+        var result = this.installBoundAssignmentCore(boundAssignment.boundTarget, boundAssignment.boundProvider, boundAssignment.targetExprStr);
+        return result;
+    },
+
+    installBoundAssignmentCore: function(boundTarget, boundProvider, targetExprStr) {
+        console.log('[dddi] Watching \'' + targetExprStr + '\'');
+
         var self = this;
-        var deps = provider.deps;
+        var deps = boundProvider.deps;
 
 
         var runningPromise = null;
@@ -127,7 +305,8 @@ DynamicDi.prototype = {
 
             // Resolve dependencies to arguments
             var args = deps.map(function(dep) {
-                var r = dep.model(self.scope);
+//                var r = dep.model(self.scope);
+                var r = dep.fn(); // we assume that the dep is bound to a context
                 return r;
             });
 
@@ -136,7 +315,7 @@ DynamicDi.prototype = {
             var valid = true;
             for(var i = 0; i < args.length; ++i) {
                 var arg = args[i];
-                var dep = provider.deps[i];
+                var dep = boundProvider.deps[i];
 
                 if(!dep.optional && arg == null) {
                     valid = false;
@@ -144,7 +323,8 @@ DynamicDi.prototype = {
                 }
             }
 
-            var val = valid ? provider.fn.apply(self.scope, args) : null;
+            // TODO the function should be bound to the context
+            var val = valid ? boundProvider.fn.apply(self.scope, args) : null;
 
             // Cancel any prior promise
             if(runningPromise && runningPromise.cancel) {
@@ -157,10 +337,11 @@ DynamicDi.prototype = {
                 if(runningPromise == val) {
                     runningPromise = null;
 
-                    console.log('[dddi] Updating ' + targetExprStr + ' with value ' + v, v);
-                    target.assign(self.scope, v);
+                    console.log('[dddi] Updating \'' + targetExprStr + '\' with value \'' + v + '\'', v);
+//                    target.assign(self.scope, v);
+                    boundTarget.assign(v);
                 } else {
-                    console.log('[dddi] Ignoring ' + targetExprStr + ' with value ' + v, v);
+                    console.log('[dddi] Ignoring \'' + targetExprStr + '\' with value \'' + v + '\'', v);
                 }
             };
 
@@ -168,7 +349,7 @@ DynamicDi.prototype = {
                 if(runningPromise == val) {
                     runningPromise = null;
 
-                    console.log('[dddi] Failed ' + targetExprStr + ': ', e);
+                    console.log('[dddi] Failed \'' + targetExprStr + '\': ', e);
                 }
             };
 
@@ -198,78 +379,98 @@ DynamicDi.prototype = {
         });
 
 
-        // Function that returns a watchExpression function.
-        // The latter which will on every call return the same array instance,
-        // however with updated items
+        /** 
+         *Function that returns a watchExpression function.
+         * The latter which will on every call return the same array instance,
+         * however with updated items
+         */
         var createArrFn = function(deps) {
+            var arrayFn = function() {
+                var r = deps.map(function(dep) {
+                    var s = dep.fn();
+                    return s;
+                });
+            };
+            var result = DiUtils.wrapArrayFn(arrayFn);
+            return result;
+        };
+/*
             var arr = [];
 
             // Init the array
             for(var i = 0; i < deps.length; ++i) {
-                var val = deps[i].model;
+                var val = deps[i].fn();
                 arr.push(val);
             }
 
             var result = function() {
                 for(var i = 0; i < deps.length; ++i) {
-                    var model = deps[i].model;
-                    arr[i] = model(self.scope);
+                    var val = deps[i].fn();
+                    //arr[i] = model(self.scope);
+                    arr[i] = val;
                 }
                 return arr;
             };
 
-            return result;
-        };
+*/
 
         var cmpModes = Object.keys(cmpModeToDeps);
 
 
-        var result = [];
+        var unwatchers = [];
         cmpModes.forEach(function(cmpMode) {
             var group = cmpModeToDeps[cmpMode];
 
+            var unwatcher;
+            var fn;
+
             switch(cmpMode) {
             case '': {
-                var unwatcher;
                 if(group.length === 1) {
-                    unwatcher = self.scope.$watch(group[0].model, doChangeAction);
+                    unwatcher = self.scope.$watch(group[0].fn, doChangeAction);
                 } else {
-                    var fn = createArrFn(group);
+                    fn = createArrFn(group);
                     unwatcher = self.scope.$watchCollection(fn, doChangeAction);
                 }
 
-                result.push(unwatcher);
+                unwatchers.push(unwatcher);
                 break;
             }
 
             case '=': {
-                var unwatcher;
                 if(group.length === 1) {
-                    unwatcher = self.scope.$watch(group[0].model, doChangeAction, true);
+                    unwatcher = self.scope.$watch(group[0].fn, doChangeAction, true);
                 } else {
-                    var fn = createArrFn(group);
+                    fn = createArrFn(group);
                     unwatcher = self.scope.$watch(fn, doChangeAction, true);
                 }
 
-                result.push(unwatcher);
+                unwatchers.push(unwatcher);
                 break;
             }
 
             case '@': {
-                var unwatchers = group.map(function(dep) {
-                    var r = self.scope.$watchCollection(dep.model, doChangeAction);
+                var uws = group.map(function(dep) {
+                    var r = self.scope.$watchCollection(dep.fn, doChangeAction);
                     return r;
                 });
 
-                result.push.apply(result, unwatchers);
+                unwatchers.push.apply(unwatchers, uws);
                 break;
             }
             default:
                 throw new Error('Unsupported watch mode: [' + mode + ']');
             }
 
-
         });
+
+        // Wrap each unwatcher with log output
+        var result = function() {
+            console.log('[dddi] Unwatching \'' + targetExprStr + '\'');
+            unwatchers.forEach(function(unwatcher) {
+                unwatcher();
+            });
+        };
 
         return result;
 
@@ -285,36 +486,180 @@ DynamicDi.prototype = {
         var result = unwatchFns;
         return result;
         */
+    }
+};
+
+
+
+/**
+ * Object for managing dddi registrations on a specific array
+ *
+ * dddi.forArray('arrayExpr').register('attr', [exprs, fn])
+ *
+ *
+ *
+ *
+ * With this array thing, we know which attribute in the items in the array
+ * we want to bind.
+ */
+var DddiArrayMgr = function(dddi, arrayFn, arrayName) {
+    this.dddi = dddi;
+
+    this.arrayFn = arrayFn;
+    this.arrayName = arrayName; // For logging purposes
+
+    this.assignments = {};
+
+    // Keep track of all watchers associated with an array item
+    this.indexToUnwatchers = [];
+
+    this.arrayCache = [];
+
+    this.init();
+};
+
+
+/**
+ * Array API for DDDI
+ */
+DddiArrayMgr.prototype = {
+    /**
+     * Watch the size of the target array, and dynamically add/remove watchers as needed
+     */
+    init: function() {
+        var self = this;
+
+        // Wrap the original arrayFn such the result array always has the same
+        // reference (we are only interested in changes to the items)
+        var wrappedArrayFn = DiUtils.wrapArrayFn(this.arrayFn);
+
+
+        this.dddi.scope.$watchCollection(wrappedArrayFn, function(after, before) {
+
+            // if the target is not an array (anymore), remove all watchers
+            if(!angular.isArray(after)) {
+                DiUtils.resizeArray(self.arrayCache, 0);
+                //self.arrayCache = [];
+                self.unwatchAtAll();
+            }
+            else {
+                //self.arrayCache = after;
+
+                DiUtils.resizeArray(self.indexToUnwatchers, after.length, {
+                    preCreate: function() {
+                        return [];
+                    },
+                    preDestroy: function(index) {
+                        self.unwatchAtIndex(index);
+                    }
+                });
+
+                DiUtils.resizeArray(self.arrayCache, after.length, {
+                    preCreate: function(index) {
+                        var r = after[index];
+                        return r;
+                    },
+                    postCreate: function(index) {
+                        self.installAllAtIndex(index);
+                    }
+                });
+            }
+        });
     },
 
     /**
-     * Not used anymore, as superseded by the grouping approach
-     *
-     * @param scope
-     * @param expr
-     * @param listener
-     * @param mode
-     * @returns The unregister function of the watch
+     * Register an assignment for an array
      */
-//    watch: function(scope, expr, listener, mode) {
-//        var result;
-//
-//        switch(mode) {
-//        case '':
-//            result = scope.$watch(expr, listener);
-//            break;
-//        case '=':
-//            result = scope.$watch(expr, listener, true);
-//            break;
-//        case '@':
-//            result = scope.$watchCollection(expr, listener);
-//            break;
-//        default:
-//            throw new Error('Unsupported watch mode: [' + mode + ']');
-//        }
-//
-//        return result;
-//    }
+    register: function(targetExprStr, providerSpec) {
+        var contextFn = function() {
+            return this.scope;
+        };
+
+        var assignment = this.dddi.processAssignment(targetExprStr, providerSpec);
+        //var boundAssignment = this.bindAssignment(
+
+
+        this.assignments[targetExprStr] = assignment;
+
+        this.installAtAll(assignment);
+
+        // TODO: The result should be a deregistration function
+        // which removes all instances of the assignment accross all array elements
+
+        return null;
+    },
+
+    /**
+     * Binds an assignment to a certain array index
+     */
+    bindAssignment: function(index, assignment) {
+        var self = this;
+
+        var depContextFn = function() {
+            var data = self.arrayCache ? self.arrayCache[index] : null;
+            var r = angular.extend({}, data);
+
+            r.$scope = self.scope;
+            r.$index = index;
+
+            return r;
+        };
+
+        var targetContextFn = function() {
+//           var r = self.arrayFn();
+           var r = self.arrayCache[index];
+           return r;
+        };
+
+        var result = DiUtils.bindAssignment(assignment, depContextFn, targetContextFn);
+        result.targetExprStr = this.arrayName + '[' + index + '].' + assignment.targetExprStr;
+
+        return result;
+    },
+
+    installAtAll: function(assignment) {
+        // Install the assignment on all current array elements
+        var l = this.arrayCache ? this.arrayCache.length : 0;
+        for(var i = 0; i < l; ++i) {
+            this.installAtIndex(i);
+//            var boundAssignment = this.bindAssignment(i, assignment);
+//            this.dddi.installBoundAssignment(boundAssignment);
+        }
+    },
+
+    installAllAtIndex: function(index) {
+        var self = this;
+
+		var keys = Object.keys(this.assignments);
+        keys.forEach(function(key) {
+            var assignment = self.assignments[key];
+            self.installAtIndex(index, assignment);
+        });
+    },
+
+    installAtIndex: function(index, assignment) {
+        var boundAssignment = this.bindAssignment(index, assignment);
+        var unwatcher = this.dddi.installBoundAssignment(boundAssignment);
+        this.indexToUnwatchers[index].push(unwatcher);
+    },
+
+    /**
+     *
+     */
+    unwatchAtAll: function() {
+        this.indexToUnwatchers.forEach(function(unwatchers) {
+            unwatchers.forEach(function(unwatcher) {
+                unwatcher();
+            });
+        });
+    },
+
+    unwatchAtIndex: function(index) {
+        var unwatchers = this.indexToUnwatchers[index];
+        unwatchers.forEach(function(unwatcher) {
+            unwatcher();
+        });
+    }
 };
 
 
@@ -347,13 +692,6 @@ angular.module('dddi', [])
     return result;
 }]);
 
-/*
-angular.Scope.prototype.$dddi = function() {
-    if(!this.$dddiObj) {
-
-    }
-};
-*/
 
 
 
