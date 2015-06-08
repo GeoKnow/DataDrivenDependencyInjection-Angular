@@ -54,7 +54,32 @@ var DiUtils = {
      * Returns a new function whose invocation returns the value in regard to the current context.
      * If the model has a .assign method, it will be wrapped as well to execute against the context.
      */
-    bindExpr: function(expr, contextFn) {
+    bindExpr: function(expr, contextOrFn) {
+        var result = angular.isFunction(contextOrFn)
+            ? this.bindExprFn(expr, contextOrFn)
+            : this.bindExprData(expr, contextOrFn)
+            ;
+
+        return result;
+    },
+
+    bindExprData: function(expr, context) {
+        var r = function() {
+            var r = expr(context);
+            return r;
+        };
+
+        if(expr.assign) {
+            r.assign = function(value) {
+                expr.assign(context, value);
+            };
+        }
+
+        return r;
+    },
+
+    bindExprFn: function(expr, contextFn) {
+
         var r = function() {
             var context = contextFn();
             var r = expr(context);
@@ -202,17 +227,42 @@ var DynamicDi = function(scope, $parse, $q) {
 
 DynamicDi.prototype = {
     linkArray: function(targetArrayExprOrStr, sourceArrayExprOrStr, handlers) {
-        var targetArrayExpr = targetArrayExprOrStr;
-        if(angular.isString(targetArrayExpr)) {
-            targetArrayExpr = this.$parse(targetArrayExprOrStr);
+        var sourceArrayExpr = angular.isString(sourceArrayExprOrStr)
+            ? this.$parse(sourceArrayExprOrStr)
+            : sourceArrayExprOrStr;
+
+        var targetArrayExpr = angular.isString(targetArrayExprOrStr)
+            ? this.$parse(targetArrayExprOrStr)
+            : targetArrayExprOrStr;
+
+        var sourceArrayFn = DiUtils.bindExpr(sourceArrayExpr, this.scope);
+        var targetArrayFn = DiUtils.bindExpr(targetArrayExpr, this.scope);
+
+        var updateFn = function(sourceArr, before) {
+            var targetArr = targetArrayFn();
+            if(!targetArr) {
+                throw new Error('[dddi] \'' + targetArrayExprOrStr + '\' does not evaluate to an array anymore');
+            }
+
+            var l = sourceArr ? sourceArr.length : 0;
+            DiUtils.resizeArray(targetArr, l, handlers);
+        };
+
+        var targetArr = targetArrayFn();
+        if(!targetArr && targetArrayFn.assign) {
+            targetArr = [];
+            targetArrayFn.assign(targetArr);
+        } else {
+            throw new Error('[dddi] Error: \'' + targetArrayExprOrStr + '\' does not evaluate to an array, nor is it writable');
         }
 
         var self = this;
-        this.scope.$watchCollection(sourceArrayExprOrStr, function(sourceArr, before) {
-            var targetArr = targetArrayExpr(self.scope);
+        var result = this.scope.$watchCollection(sourceArrayFn, updateFn);
 
-            DiUtils.resizeArray(targetArr, sourceArr.length, handlers);
-        });
+        var init = sourceArrayFn();
+        updateFn(init);
+
+        return result;
     },
 
 
@@ -600,7 +650,7 @@ DddiArrayMgr.prototype = {
             var data = self.arrayCache ? self.arrayCache[index] : null;
             var r = angular.extend({}, data);
 
-            r.$scope = self.scope;
+            r.$scope = self.dddi.scope;
             r.$index = index;
 
             return r;
