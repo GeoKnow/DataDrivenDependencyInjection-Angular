@@ -242,15 +242,15 @@ DynamicDi.prototype = {
 
 
     processAssignment: function(targetExprStr, providerSpec) {
-        var target = this.$parse(targetExprStr);
-        if(!target.assign) {
+        var targetExpr = this.$parse(targetExprStr);
+        if(!targetExpr.assign) {
             throw new Error('Target is not writeable: ', targetExprStr, providerSpec);
         }
 
         var provider = DiUtils.processProviderSpec(this.$parse, providerSpec);
 
         var result = {
-            targetExpr: target,
+            targetExpr: targetExpr,
             targetExprStr: targetExprStr, // useful for logging
             provider: provider
         };
@@ -390,6 +390,7 @@ DynamicDi.prototype = {
                     var s = dep.fn();
                     return s;
                 });
+                return r;
             };
             var result = DiUtils.wrapArrayFn(arrayFn);
             return result;
