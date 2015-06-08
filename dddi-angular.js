@@ -209,7 +209,7 @@ DynamicDi.prototype = {
 
         var self = this;
         this.scope.$watchCollection(sourceArrayExprOrStr, function(sourceArr, before) {
-            var targetArr = targetArrayExpr(this.scope);
+            var targetArr = targetArrayExpr(self.scope);
 
             DiUtils.resizeArray(targetArr, sourceArr.length, handlers);
         });
