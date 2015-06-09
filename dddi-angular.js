@@ -657,8 +657,10 @@ DddiArrayMgr.prototype = {
         };
 
         var targetContextFn = function() {
-//           var r = self.arrayFn();
-           var r = self.arrayCache[index];
+           var arr = self.arrayFn();
+           var r = arr[index];
+
+//           var r = self.arrayCache[index];
            return r;
         };
 
@@ -739,6 +741,9 @@ angular.module('dddi', [])
         var r = new DynamicDi(scope, $parse, $q);
         return r;
     };
+
+    // Expose utils
+    result.utils = DiUtils;
 
     return result;
 }]);

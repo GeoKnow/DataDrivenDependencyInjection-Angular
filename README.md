@@ -21,9 +21,36 @@ If that function returns a promise, the target value is set once it resolves. In
   "name": "your-app",
   "version": "0.0.1",
   "dependencies": {
-    "dddi-angular": "1.0.0"
+    "dddi-angular": "1.0.1"
   }
 }
+```
+
+
+## New with version 1.0.1: Array support!
+You can now define attributes which are dynamically updated on each item of an array:
+
+Dependencies are evaluated against a copy of the array whose items are extended with the following attributes:
+
+* `$index`: The index of the current item
+* `$scope`: Reference to the $scope object which holds the array
+
+```js
+    $scope.langs = ['en', 'de'];
+
+
+    $scope.test = [{a: 1}, {a: 2}];
+
+    dddi.forArray('test').register('b', ['a', '$index',
+        function(x, $index) {
+            console.log('$index: ', x, $index);
+            return x + 1;
+        }]);
+
+    dddi.forArray('test').register('c', ['b',
+        function(x) {
+            return x + 1;
+        }]);
 ```
 
 ## Example
