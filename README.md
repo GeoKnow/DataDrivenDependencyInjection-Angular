@@ -36,9 +36,6 @@ Dependencies are evaluated against a copy of the array whose items are extended 
 * `$scope`: Reference to the $scope object which holds the array
 
 ```js
-    $scope.langs = ['en', 'de'];
-
-
     $scope.test = [{a: 1}, {a: 2}];
 
     dddi.forArray('test').register('b', ['a', '$index',
