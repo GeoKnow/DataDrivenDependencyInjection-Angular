@@ -53,6 +53,11 @@ Dependencies are evaluated against a copy of the array whose items are extended 
         }]);
 ```
 
+```html
+    <button type="button" ng:click="test.push({a: 100})">Test Push</button>
+    <button type="button" ng:click="test.pop()">Test Pop</button>
+```
+
 ## Example
 ```js
 // Note: Since not many ppl know what a sparql endpoint is, at some point I'll update this example
