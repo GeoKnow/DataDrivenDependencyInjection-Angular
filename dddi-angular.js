@@ -12,7 +12,7 @@ var DiUtils = {
         var targetArray = [];
 
         var result = function() {
-            var sourceArray = sourcArrayFn();
+            var sourceArray = sourcArrayFn.apply(this, arguments);
             var l = sourceArray ? sourceArray.length : 0;
             DiUtils.resizeArray(targetArray, l);
 
