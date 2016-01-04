@@ -8,8 +8,10 @@ var DiUtils = {
      * Function that wraps an array-returning function, such that
      * the returned array will always have the same reference
      */
-    wrapArrayFn: function(sourcArrayFn) {
+    wrapArrayFn: function(sourcArrayFn, equalsFn) {
         var targetArray = [];
+
+        equalsFn = equalsFn || angular.equals;
 
         var result = function() {
             var sourceArray = sourcArrayFn.apply(this, arguments);
@@ -17,7 +19,13 @@ var DiUtils = {
             DiUtils.resizeArray(targetArray, l);
 
             for(var i = 0; i < l; ++i) {
-                targetArray[i] = sourceArray[i];
+                var s = sourceArray[i];
+                var t = targetArray[i];
+
+                var isEqual = equalsFn(s, t);
+                if(!isEqual) {
+                    targetArray[i] = s;
+                }
             }
             return targetArray;
         };
